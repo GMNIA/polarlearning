@@ -1,4 +1,4 @@
-# CUDA-enabled Rust dev+run image (simple and reliable)
+# CUDA-enabled Rust dev+run image (optimized for build caching)
 FROM nvidia/cuda:12.4.1-devel-ubuntu22.04
 
 # ----- System deps for Rust, Polars, and general builds -----
@@ -13,12 +13,15 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 RUN rustup default stable && rustup component add clippy rustfmt
 
 # Workdir is your project root (same folder as this Dockerfile)
-WORKDIR /app
+WORKDIR /workspace
 
 # ----- Cache dependencies first (faster rebuilds) -----
-COPY Cargo.toml ./
+COPY Cargo.toml Cargo.lock* ./
 # create a dummy file so cargo can resolve deps without your sources yet
-RUN mkdir -p src && echo "fn main() {}" > src/main.rs && cargo fetch
+RUN mkdir -p src && echo "fn main() {}" > src/main.rs && cargo build --release
+
+# Remove dummy files
+RUN rm src/main.rs && rm -rf src
 
 # ----- Bring in your actual project sources (from this path) -----
 COPY . .
@@ -32,4 +35,4 @@ ENV RUST_LOG=info
 # ----- Run your app on container start -----
 # This will use the already-built binary; if sources changed and you rebuild the image,
 # it will recompile during docker build, not at runtime.
-CMD ["bash", "-lc", "cargo run --release"]
+CMD ["./target/release/polarlearning"]
