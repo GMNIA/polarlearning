@@ -1,0 +1,26 @@
+# Enforce consistent line endings while allowing platform-friendly checkouts
+# Text files get LF in repo, Windows converts to CRLF automatically if user enables core.autocrlf
+* text=auto eol=lf
+
+# Rust source
+*.rs text eol=lf
+
+# Shell scripts always LF
+*.sh text eol=lf
+
+# PowerShell scripts: keep CRLF to avoid issues with some Windows tools
+*.ps1 text eol=crlf
+
+# Data files (keep as-is)
+*.parquet binary
+*.zip binary
+*.tgz binary
+*.tar.gz binary
+
+# Do not alter images/binaries
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+
