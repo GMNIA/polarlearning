@@ -2,13 +2,6 @@
 /target/
 Cargo.lock
 
-# Raw datasets (large files, keep structure)
-datasets/*/
-!datasets/.gitkeep
-
-# Model input data (processed)
-model-input-data/
-
 # Models and outputs (generated)
 models/
 outputs/
