@@ -1,15 +1,23 @@
-# Rust
+# Rust build artifacts
 /target/
-Cargo.lock
 
-# Models and outputs (generated)
-models/
-outputs/
+# Generated output files (should not be committed)
+model-input-data/raw/
+
+# Future directories (keep structure but ignore content)
+models/*
+!models/.gitkeep
+outputs/*
+!outputs/.gitkeep
 
 # Downloaded archives
 *.tgz
 *.tar.gz
 *.zip
+
+# Temporary files
+*.tmp
+*.log
 
 # IDE
 .vscode/
