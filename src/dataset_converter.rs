@@ -1,3 +1,8 @@
+//! Dataset conversion utilities for the polarlearning project.
+//!
+//! Handles conversion from raw dataset files to Polars-friendly formats
+//! (CSV + Parquet), with intelligent caching to avoid redundant work.
+
 use polars::prelude::*;
 use std::path::Path;
 use anyhow::Result;
@@ -17,12 +22,15 @@ pub enum Verbosity {
 }
 
 impl Default for Verbosity {
+    /// Provide the default (Silent) verbosity level.
     fn default() -> Self {
         Verbosity::Silent
     }
 }
 
+
 impl From<u8> for Verbosity {
+    /// Convert a numeric level into a `Verbosity` enum value.
     fn from(level: u8) -> Self {
         match level {
             0 => Verbosity::Silent,
@@ -37,35 +45,36 @@ impl From<u8> for Verbosity {
 pub struct DatasetConverter;
 
 impl DatasetConverter {
-    /// Convert a dataset to Polars format if needed
-    /// 
-    /// This function checks if the dataset folder contains the data files and
-    /// if the corresponding Polars format already exists in model-input-data/raw.
-    /// If not, it performs the conversion from raw data to CSV and Parquet formats.
+    /// Convert a dataset to Polars format if needed.
+    ///
+    /// This function checks if the required input files exist and whether
+    /// converted artifacts already exist. If not, it performs the conversion
+    /// and writes CSV + Parquet outputs.
     pub async fn convert_if_needed(
-        dataset_name: &str, 
-        data_file_path: &str, 
+        dataset_name: &str,
+        data_file_path: &str,
         domain_file_path: &str,
-        verbosity: Verbosity
+        verbosity: Verbosity,
     ) -> Result<String> {
+        // --- Output base directory ---
         let output_path = "model-input-data/raw";
-        
-        // Check if input files exist
+
+        // --- Validate input file existence ---
         if !Path::new(data_file_path).exists() {
             return Err(anyhow::anyhow!("Data file not found: {}", data_file_path));
         }
-        
         if !Path::new(domain_file_path).exists() {
             return Err(anyhow::anyhow!("Domain file not found: {}", domain_file_path));
         }
-        
-        // Create output directory
+
+        // --- Ensure output directory exists ---
         fs::create_dir_all(output_path)?;
-        
-        // Check if polar format already exists
+
+        // --- Pre-compute expected target file paths ---
         let csv_file = format!("{}/{}.csv", output_path, dataset_name);
         let parquet_file = format!("{}/{}.parquet", output_path, dataset_name);
-        
+
+        // --- Fast path: outputs already present ---
         if Path::new(&csv_file).exists() && Path::new(&parquet_file).exists() {
             if verbosity != Verbosity::Silent {
                 println!("✅ Polar format already exists for {} - skipping conversion", dataset_name);
@@ -74,110 +83,79 @@ impl DatasetConverter {
             }
             return Ok(output_path.to_string());
         }
-        
+
+        // --- Perform actual conversion dispatch ---
         if verbosity != Verbosity::Silent {
             println!("🔄 Converting {} to Polars format...", dataset_name);
         }
         
-        // Perform conversion based on dataset name
-        match dataset_name {
-            "CaliforniaHousing" => {
-                Self::convert_california_housing(data_file_path, output_path, dataset_name, verbosity).await?;
-            }
-            _ => {
-                return Err(anyhow::anyhow!("Unknown dataset: {}", dataset_name));
-            }
-        }
-        
+        // --- Generic CSV conversion (no hardcoded dataset names) ---
+        Self::convert_csv_dataset(data_file_path, output_path, dataset_name, verbosity).await?;
+
         Ok(output_path.to_string())
     }
-    
-    /// Convert California Housing dataset to Polars format
-    async fn convert_california_housing(
-        data_file_path: &str, 
-        output_path: &str, 
+
+
+    /// Convert California Housing dataset to Polars format (CSV + Parquet) and print basic stats.
+    /// Convert any CSV dataset to Polars format (CSV + Parquet) and print basic stats.
+    ///
+    /// This is a generic converter that assumes the input is a comma-separated file
+    /// without headers. Column names are preserved as-is from the input file.
+    async fn convert_csv_dataset(
+        data_file_path: &str,
+        output_path: &str,
         dataset_name: &str,
-        verbosity: Verbosity
+        verbosity: Verbosity,
     ) -> Result<()> {
+        // --- Announce conversion start ---
         if verbosity != Verbosity::Silent {
-            println!("📊 Converting California Housing dataset to Polars format...");
+            println!("📊 Converting {} dataset to Polars format...", dataset_name);
         }
-        
+
+        // --- Target file paths ---
         let csv_file = format!("{}/{}.csv", output_path, dataset_name);
         let parquet_file = format!("{}/{}.parquet", output_path, dataset_name);
-        
-        // Read the raw data file using LazyCsvReader
-        // Column order: Longitude, Latitude, HousingMedianAge, TotalRooms, TotalBedrooms, Population, Households, MedianIncome, MedianHouseValue
+
+        // --- Read raw CSV data with generic column handling ---
         let df = LazyCsvReader::new(data_file_path)
             .with_has_header(false)
             .with_separator(b',')
             .finish()?
-            .with_columns([
-                col("column_1").alias("longitude"),
-                col("column_2").alias("latitude"), 
-                col("column_3").alias("housing_median_age"),
-                col("column_4").alias("total_rooms"),
-                col("column_5").alias("total_bedrooms"),
-                col("column_6").alias("population"),
-                col("column_7").alias("households"),
-                col("column_8").alias("median_income"),
-                col("column_9").alias("median_house_value"),
-            ])
-            .select([
-                col("longitude"),
-                col("latitude"),
-                col("housing_median_age"),
-                col("total_rooms"),
-                col("total_bedrooms"),
-                col("population"),
-                col("households"),
-                col("median_income"),
-                col("median_house_value"),
-            ])
             .collect()?;
-        
+
+        // --- Optional preview output ---
         if verbosity != Verbosity::Silent {
             println!("📈 Dataset shape: {} rows × {} columns", df.height(), df.width());
             println!("📋 First few rows:");
             println!("{}", df.head(Some(5)));
         }
-        
-        // Save as CSV with proper headers
+
+        // --- Persist as CSV ---
         let mut csv_file_handle = std::fs::File::create(&csv_file)?;
         CsvWriter::new(&mut csv_file_handle)
             .include_header(true)
             .finish(&mut df.clone())?;
-        
         if verbosity != Verbosity::Silent {
             println!("💾 Saved CSV to: {}", csv_file);
         }
-        
-        // Save as Parquet (more efficient for Polars)
+
+        // --- Persist as Parquet ---
         let parquet_file_handle = std::fs::File::create(&parquet_file)?;
         ParquetWriter::new(parquet_file_handle)
             .finish(&mut df.clone())?;
-        
         if verbosity != Verbosity::Silent {
             println!("💾 Saved Parquet to: {}", parquet_file);
         }
-        
-        // Show some basic statistics
+
+        // --- Basic statistics summary ---
         if verbosity != Verbosity::Silent {
             let row_count = df.height();
-            let stats = df.lazy()
-                .select([
-                    lit(row_count as i64).alias("row_count"),
-                    col("median_house_value").mean().alias("mean_price"),
-                    col("median_house_value").median().alias("median_price"),
-                    col("median_income").mean().alias("mean_income"),
-                    col("total_rooms").sum().alias("total_rooms_sum"),
-                ])
-                .collect()?;
-            
+            let column_count = df.width();
             println!("\n📊 Dataset Statistics:");
-            println!("{}", stats);
+            println!("   Rows: {}", row_count);
+            println!("   Columns: {}", column_count);
         }
-        
+
         Ok(())
     }
 }
