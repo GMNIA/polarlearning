@@ -7,6 +7,7 @@ use polars::prelude::*;
 use std::path::Path;
 use anyhow::Result;
 use std::fs;
+use crate::datasets::california_housing::CaliforniaHousingProcessor;
 
 /// Verbosity levels for dataset conversion operations
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -15,8 +16,9 @@ pub enum Verbosity {
     Silent = 0,
     /// Normal mode - basic progress and results
     Normal = 1,
+    /// Verbose mode - detailed progress with timing
+    Verbose = 2,
     // TODO: Add more verbosity levels:
-    // TODO: Verbose = 2,  // Detailed progress with timing
     // TODO: Debug = 3,    // Debug information and intermediate steps
     // TODO: Trace = 4,    // Full trace with data samples
 }
@@ -35,7 +37,7 @@ impl From<u8> for Verbosity {
         match level {
             0 => Verbosity::Silent,
             1 => Verbosity::Normal,
-            // TODO: Handle additional levels when implemented
+            2 => Verbosity::Verbose,
             _ => Verbosity::Normal, // Default to Normal for unknown levels
         }
     }
@@ -81,6 +83,23 @@ impl DatasetConverter {
                 println!("   CSV: {}", csv_file);
                 println!("   Parquet: {}", parquet_file);
             }
+            
+            // TODO: Auto-copy to processed directory even when skipping conversion
+            // This ensures the training pipeline always has access to processed data
+            let processed_dir = "model-input-data/processed";
+            fs::create_dir_all(processed_dir)?;
+            
+            let processed_csv = format!("{}/{}.csv", processed_dir, dataset_name);
+            if !Path::new(&processed_csv).exists() {
+                if verbosity != Verbosity::Silent {
+                    println!("📋 Copying to processed directory for training pipeline...");
+                }
+                fs::copy(&csv_file, &processed_csv)?;
+                if verbosity != Verbosity::Silent {
+                    println!("✅ Processed data ready at: {}", processed_csv);
+                }
+            }
+            
             return Ok(output_path.to_string());
         }
 
@@ -117,11 +136,22 @@ impl DatasetConverter {
         let parquet_file = format!("{}/{}.parquet", output_path, dataset_name);
 
         // --- Read raw CSV data with generic column handling ---
-        let df = LazyCsvReader::new(data_file_path)
+        let mut df = LazyCsvReader::new(data_file_path)
             .with_has_header(false)
             .with_separator(b',')
             .finish()?
             .collect()?;
+
+        // --- Apply dataset-specific column transformations ---
+        if dataset_name == "CaliforniaHousing" {
+            println!("🔧 Applying California Housing column transformations...");
+            df = CaliforniaHousingProcessor::transform_columns(df.lazy())?;
+            println!("✅ Column transformations applied successfully");
+            
+            if verbosity != Verbosity::Silent {
+                println!("📋 Transformed columns: {:?}", df.get_column_names());
+            }
+        }
 
         // --- Optional preview output ---
         if verbosity != Verbosity::Silent {
@@ -154,6 +184,22 @@ impl DatasetConverter {
             println!("\n📊 Dataset Statistics:");
             println!("   Rows: {}", row_count);
             println!("   Columns: {}", column_count);
+        }
+
+        // TODO: Auto-copy converted files to processed directory for training pipeline
+        // This is a temporary solution until we implement proper data preprocessing
+        let processed_dir = "model-input-data/processed";
+        fs::create_dir_all(processed_dir)?;
+        
+        let processed_csv = format!("{}/{}.csv", processed_dir, dataset_name);
+        if verbosity != Verbosity::Silent {
+            println!("📋 Copying to processed directory for training pipeline...");
+        }
+        
+        fs::copy(&csv_file, &processed_csv)?;
+        
+        if verbosity != Verbosity::Silent {
+            println!("✅ Processed data ready at: {}", processed_csv);
         }
 
         Ok(())

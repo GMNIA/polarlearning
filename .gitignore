@@ -3,8 +3,6 @@
 
 # Generated output files (should not be committed)
 model-input-data/raw/
-
-# Future directories (keep structure but ignore content)
 models/*
 !models/.gitkeep
 outputs/*
