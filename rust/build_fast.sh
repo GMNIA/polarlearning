@@ -19,9 +19,11 @@ fi
 echo "✅ Build complete! Running with persistent cache..."
 
 # Run the container with mounted volumes for fast rebuilds
+PARENT_DIR="$(cd .. && pwd)"
 docker run --rm \
     -v "$(pwd):/workspace" \
     -v "polarlearning-target-cache:/workspace/target" \
+    -v "${PARENT_DIR}/datasets:/workspace/datasets" \
     --workdir /workspace \
     polarlearning-fast
 

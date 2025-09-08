@@ -1,6 +1,7 @@
 use polars::prelude::*;
 use anyhow::{Result, Context};
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::fs;
 use std::env;
 
 // Import our modular components
@@ -208,16 +209,30 @@ async fn main() -> Result<()> {
     
     // Dataset preparation
     println!("\n📊 Preparing dataset...");
-    let data_file_path = "datasets/CaliforniaHousing/cal_housing.data";
-    let domain_file_path = "datasets/CaliforniaHousing/cal_housing.domain";
+    // Resolve dataset location: prefer CWD datasets/, else ../datasets/, else env var DATASETS_DIR
+    let datasets_dir = std::env::var("DATASETS_DIR").ok()
+        .map(PathBuf::from)
+        .filter(|p| p.exists())
+        .or_else(|| {
+            let here = PathBuf::from("datasets/CaliforniaHousing");
+            if here.exists() { Some(PathBuf::from("datasets")) } else { None }
+        })
+        .or_else(|| {
+            let parent = PathBuf::from("../datasets/CaliforniaHousing");
+            if parent.exists() { Some(PathBuf::from("../datasets")) } else { None }
+        })
+        .unwrap_or_else(|| PathBuf::from("datasets"));
+
+    let data_file_path = datasets_dir.join("CaliforniaHousing/cal_housing.data");
+    let domain_file_path = datasets_dir.join("CaliforniaHousing/cal_housing.domain");
     
     println!("DEBUG: About to call convert_if_needed");
     
     // Convert dataset if needed
     let output_path = DatasetConverter::convert_if_needed(
         "CaliforniaHousing",
-        data_file_path,
-        domain_file_path,
+        data_file_path.to_string_lossy().as_ref(),
+        domain_file_path.to_string_lossy().as_ref(),
         Verbosity::Normal,
     ).await?;
     
