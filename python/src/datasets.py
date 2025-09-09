@@ -72,18 +72,24 @@ def load_raw_dataset() -> pl.DataFrame:
 
 def process_and_save(df: pl.DataFrame) -> Tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame, pl.DataFrame]:
     paths = get_california_paths()
+    
+    # Save raw data first (before any processing)
+    df.write_csv(paths.raw_csv)
+    print(f"💾 Saved raw data to: {paths.raw_csv}")
+    
     # Split features/target
     features = df.select(CALIFORNIA_COLUMNS[:-1])
     target = df.select([CALIFORNIA_COLUMNS[-1]])
 
-    # Scale features
+    # Scale features using StandardScaler (zero mean, unit variance)
     scaler = StandardScaler()
     X = scaler.fit_transform(features.to_numpy())
     features_scaled = pl.DataFrame(X, schema=features.columns)
 
-    # Save processed CSV for parity with Rust
+    # Save processed CSV (scaled features + original target)
     out = pl.concat([features_scaled, target], how="horizontal")
     out.write_csv(paths.processed_csv)
+    print(f"📊 Saved processed data (StandardScaler applied) to: {paths.processed_csv}")
 
     # Train/test split 80/20
     n = out.height
