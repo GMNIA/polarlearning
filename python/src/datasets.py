@@ -82,14 +82,23 @@ def process_and_save(df: pl.DataFrame) -> Tuple[pl.DataFrame, pl.DataFrame, pl.D
     target = df.select([CALIFORNIA_COLUMNS[-1]])
 
     # Scale features using StandardScaler (zero mean, unit variance)
-    scaler = StandardScaler()
-    X = scaler.fit_transform(features.to_numpy())
-    features_scaled = pl.DataFrame(X, schema=features.columns)
+    feature_scaler = StandardScaler()
+    X_scaled = feature_scaler.fit_transform(features.to_numpy())
+    features_scaled = pl.DataFrame(X_scaled, schema=features.columns)
+    
+    # Scale target values as well (important for regression!)
+    target_scaler = StandardScaler()
+    y_scaled = target_scaler.fit_transform(target.to_numpy())
+    target_scaled = pl.DataFrame(y_scaled, schema=target.columns)
+    
+    print(f"📊 Feature scaling: mean={features.to_numpy().mean():.1f} → {X_scaled.mean():.6f}")
+    print(f"📊 Target scaling: mean={target.to_numpy().mean():.1f} → {y_scaled.mean():.6f}")
+    print(f"📊 Target range: [{target.to_numpy().min():.0f}, {target.to_numpy().max():.0f}] → [{y_scaled.min():.2f}, {y_scaled.max():.2f}]")
 
-    # Save processed CSV (scaled features + original target)
-    out = pl.concat([features_scaled, target], how="horizontal")
+    # Save processed CSV (scaled features + scaled target)
+    out = pl.concat([features_scaled, target_scaled], how="horizontal")
     out.write_csv(paths.processed_csv)
-    print(f"📊 Saved processed data (StandardScaler applied) to: {paths.processed_csv}")
+    print(f"� Saved processed data (both features & target scaled) to: {paths.processed_csv}")
 
     # Train/test split 80/20
     n = out.height
