@@ -1,0 +1,26 @@
+# Python build / env
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+*.egg-info/
+
+# Outputs & models (keep .gitkeep)
+models/*
+!models/.gitkeep
+outputs/*
+!outputs/.gitkeep
+model-input-data/raw/*
+!model-input-data/raw/.gitkeep
+model-input-data/processed/*
+!model-input-data/processed/.gitkeep
+
+# OS/IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Docker
+.dockerignore

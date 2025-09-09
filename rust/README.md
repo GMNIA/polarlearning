@@ -1,33 +1,20 @@
-# PolarLearning 🚀
+# PolarLearning (Rust)
 
-A high-performance neural network implementation built with Rust and Polars for the California Housing dataset regression task.
+Rust implementation with custom neural network layers, Polars for data processing, and Docker containerization.
 
-## 🎯 Overview
+## Features
+- Custom NN framework (Linear, ReLU, Sequential)  
+- Polars DataFrames for fast data processing
+- MAE loss + SGD optimizer
+- California Housing regression task
 
-PolarLearning demonstrates a modular, PyTorch-style neural network implementation using Rust's type safety and Polars' efficient DataFrame operations. The project features a clean, composable architecture for building and training deep learning models.
-
-### Key Features
-
-- ⚡ **Modular Architecture** - PyTorch-style components (Linear, ReLU, Sequential)
-- 🧠 **Neural Network Implementation** - From-scratch backpropagation with automatic differentiation
-- 📊 **Polars Integration** - Efficient DataFrame-based tensor operations
-- 🎯 **Real Dataset** - California Housing price prediction task
-- 🔧 **Type Safety** - Rust's type system prevents runtime errors
-- 🐳 **Docker Support** - Containerized training environment
-
-## 🏗️ Architecture
-
-### Modular Components
-
+## Quick Start
+```bash
+./build_fast.sh     # Build & run with caching
+./dev_shell.sh      # Interactive development
 ```
-src/
-├── init/           # Weight initialization (Xavier, Kaiming, Normal, Uniform)
-├── functional/     # Pure functions (activations, linear ops)
-├── losses/         # Loss functions (MSE, MAE, CrossEntropy)
-├── nn/            # Core modules (Linear, ReLU, Sequential, Module trait)
-├── optim/         # Optimizers (SGD, Adam)
-└── transforms/    # Data preprocessing (StandardScaler, MinMaxScaler)
-```
+
+Architecture: 8→64→32→1 with ReLU activation, matching the Python version for comparison.
 
 ### Core Concepts
 
